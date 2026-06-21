@@ -1,0 +1,10 @@
+.claude/
+node_modules/
+dist/
+out/
+release/
+*.log
+.DS_Store
+.vite/
+coverage/
+THIRD-PARTY-NOTICES.csv
