@@ -1,0 +1,70 @@
+:root {
+  /* Neutrals tinted toward the violet accent (OKLCH-derived, very low chroma) */
+  --bg: oklch(0.205 0.006 295); /* app background ~#1e1e1f */
+  --bg-titlebar: oklch(0.185 0.006 295);
+  --panel: oklch(0.235 0.006 295); /* sidebars / toolbar */
+  --panel-2: oklch(0.255 0.007 295); /* raised controls */
+  --editor: oklch(0.215 0.006 295);
+  --canvas: oklch(0.225 0.006 295);
+  --border: oklch(0.305 0.008 295);
+  --border-soft: oklch(0.275 0.007 295);
+  --grid-dot: oklch(0.315 0.006 295);
+
+  --text: oklch(0.86 0.006 295);
+  --text-muted: oklch(0.66 0.008 295);
+  --text-faint: oklch(0.52 0.008 295);
+
+  /* Single violet accent (Obsidian family) */
+  --accent: oklch(0.62 0.17 296);
+  --accent-strong: oklch(0.66 0.19 296);
+  --accent-soft: oklch(0.62 0.17 296 / 0.16);
+  --accent-line: oklch(0.62 0.17 296 / 0.42);
+
+  /* Syntax */
+  --syn-heading: oklch(0.72 0.16 296);
+  --syn-keyword: oklch(0.7 0.13 25);
+  --syn-fence: oklch(0.6 0.09 200);
+  --syn-id: oklch(0.78 0.12 200);
+  --syn-label: oklch(0.8 0.1 130);
+  --syn-punct: oklch(0.58 0.008 295);
+  --syn-arrow: oklch(0.72 0.14 60);
+
+  /* Node fills (pastel, dark text) */
+  --n-terminal: #f3c6d2;
+  --n-process: #f2e3b0;
+  --n-io: #bcd6f4;
+  --n-decision: #f1dca0;
+  --n-doc: #cfe4cf;
+  --n-db: #d6cdf0;
+  --n-text: #23252b;
+  --n-stroke: #8c8378;
+
+  --ok: oklch(0.74 0.13 150);
+
+  font-synthesis-weight: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+}
