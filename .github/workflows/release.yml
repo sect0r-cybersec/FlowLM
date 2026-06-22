@@ -1,0 +1,50 @@
+name: Release
+
+# Push a tag like v0.1.0 to build installers and publish a GitHub Release:
+#   npm version patch   # bumps version + creates the tag
+#   git push --follow-tags
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    permissions:
+      contents: write # required to create the Release and upload assets
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build core (renderer depends on it)
+        run: npm run build:core
+
+      - name: Build & package desktop app
+        working-directory: apps/desktop
+        # electron-vite build, then electron-builder reads electron-builder.yml.
+        # --publish never: we upload via softprops below, so electron-builder
+        # should not try to publish to GitHub itself.
+        run: |
+          npm run build
+          npx electron-builder --publish never
+
+      - name: Upload installers to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Only the artifacts produced on this runner exist; the action skips
+          # patterns that match nothing, so a single file list works per-OS.
+          files: |
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.AppImage
