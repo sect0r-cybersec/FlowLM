@@ -6,6 +6,15 @@ directories:
   output: dist
   buildResources: build
 
+# This app bundles everything via Vite and ships zero runtime node_modules, so
+# electron-builder must NOT run its "install production dependencies" step. In an
+# npm-workspaces monorepo that step runs the package manager in production mode
+# against the hoisted root node_modules, which prunes devDependencies — including
+# electron-builder's own app-builder-bin helper — and then fails to spawn it
+# (spawn .../app-builder-bin/<platform>/app-builder ENOENT). Disabling the
+# native-rebuild step skips that entirely. Verified on Linux + Windows CI.
+npmRebuild: false
+
 # The app is fully self-contained after `electron-vite build`:
 # - renderer (incl. @flowlm/core and all UI deps) is bundled by Vite into out/renderer
 # - main/preload import only electron + node built-ins, so there are no runtime
@@ -20,12 +29,17 @@ win:
   target:
     - nsis
     - portable
-  artifactName: ${productName}-${version}-${arch}-setup.${ext}
 
+# Per-target names so the installer and the portable exe don't overwrite each
+# other (both default to the same filename otherwise).
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-${arch}-portable.${ext}
 
 linux:
   target:
