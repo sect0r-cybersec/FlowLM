@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { VaultDiamond, Chevron, FolderTree, FileDoc } from './Icons'
-import type { FileNode } from '../fileApi'
+import { vaultJoin, type FileNode } from '../fileApi'
 
 interface SidebarProps {
   vaultName: string
   vaultPath: string
   tree: FileNode[]
   activePath: string | null
+  currentRel: string | null
+  canChooseVault: boolean
+  onChooseVault: () => void
   onOpenFile: (node: FileNode) => void
 }
 
@@ -52,18 +55,36 @@ function TreeRow({
   )
 }
 
-export function Sidebar({ vaultName, vaultPath, tree, activePath, onOpenFile }: SidebarProps) {
+export function Sidebar({
+  vaultName,
+  vaultPath,
+  tree,
+  activePath,
+  currentRel,
+  canChooseVault,
+  onChooseVault,
+  onOpenFile
+}: SidebarProps) {
+  // Show where the user is working: the open file's vault-relative path, else the
+  // vault root. The header doubles as a "switch vault" button.
+  const workingPath = currentRel ? vaultJoin(vaultPath, currentRel) : vaultPath
   return (
     <aside className="sidebar">
-      <div className="vault-head">
+      <button
+        className="vault-head"
+        onClick={onChooseVault}
+        disabled={!canChooseVault}
+        title={canChooseVault ? 'Click to choose a different vault folder' : workingPath}
+      >
         <div className="vault-name">
           <VaultDiamond />
           {vaultName}
+          {canChooseVault && <Chevron className="vault-switch" />}
         </div>
-        <div className="vault-path" title={vaultPath}>
-          {vaultPath}
+        <div className="vault-path" title={workingPath}>
+          {workingPath}
         </div>
-      </div>
+      </button>
       <div className="tree">
         <div className="tree-section">Diagrams</div>
         {tree.length === 0 ? (

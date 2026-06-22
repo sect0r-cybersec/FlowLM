@@ -19,7 +19,7 @@ import { type ShapeNodeData } from './components/ShapeNode'
 import { ContextMenu, type MenuItem } from './components/ContextMenu'
 import { SettingsModal } from './components/SettingsModal'
 import { SAMPLE_NODES, SAMPLE_EDGES, SAMPLE_PLAN_ROUTE } from './data/sample'
-import { files, baseName, vaultJoin, relToVault, type FileNode } from './fileApi'
+import { files, settings, baseName, vaultJoin, relToVault, type FileNode } from './fileApi'
 import { exportCanvasImage, type ImageFormat } from './exportImage'
 import { ElkLayoutEngine, type Positions } from './core/layout'
 import {
@@ -39,6 +39,7 @@ import {
 import { toFlowGraph, graphToFlowNodes, graphToFlowEdges } from './flowAdapter'
 import { estimateNodeSize } from './nodeSize'
 import { defaultEdgeProps } from './flowDefaults'
+import { SHAPES, type ShapeKind } from './shapes'
 
 const SIDEBAR_W = 230
 const SPLITTER_W = 6
@@ -107,6 +108,8 @@ export default function App() {
   )
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [mcpEnabled, setMcpEnabled] = useState(false)
 
   const activeName = path[path.length - 1]
 
@@ -130,9 +133,27 @@ export default function App() {
       applyingProgrammatic.current = false
       return
     }
-    modelRef.current = withBlock(modelRef.current, activeName, toFlowGraph(nodes, edges))
+    let next = withBlock(modelRef.current, activeName, toFlowGraph(nodes, edges))
+    // Lazy subprocess promotion: once a drilled-in block gains content, turn the
+    // parent node that points at it (same label) into a subprocess shape.
+    const p = pathRef.current
+    if (p.length > 1 && nodes.length > 0) {
+      const parentName = p[p.length - 2]
+      const parent = getBlock(next, parentName)
+      const idx =
+        parent?.graph.nodes.findIndex(
+          (n) => n.label.trim() === activeName && n.kind !== 'subprocess'
+        ) ?? -1
+      if (parent && idx >= 0) {
+        const promoted = parent.graph.nodes.map((n, i) =>
+          i === idx ? { ...n, kind: 'subprocess' as const } : n
+        )
+        next = withBlock(next, parentName, { ...parent.graph, nodes: promoted })
+      }
+    }
+    modelRef.current = next
     positionsRef.current.set(activeName, positionsFromNodes(nodes))
-    const text = serializeDocument(modelRef.current)
+    const text = serializeDocument(next)
     if (text !== lastSyncedText.current) {
       lastSyncedText.current = text
       setDoc(text)
@@ -185,22 +206,54 @@ export default function App() {
     [loadBlock, revealBlock]
   )
 
-  const onNodeDoubleClick = useCallback<NodeMouseHandler<Node<ShapeNodeData>>>(
-    (_e, node) => {
-      if (node.data.kind !== 'subprocess') return
+  // Drill into a node's subprocess space (Ctrl/Cmd+click). We just navigate in —
+  // the node is *not* converted to a subprocess and no block is persisted yet.
+  // That happens lazily, once something is actually added inside (see the canvas →
+  // text effect above), so an empty drill-in leaves the parent diagram untouched.
+  const drillInto = useCallback(
+    (node: Node<ShapeNodeData>) => {
       const name = node.data.label.trim()
-      if (!name) return
-      if (!getBlock(modelRef.current, name)) {
-        // Drilling into an undefined subprocess creates an empty block for it.
-        modelRef.current = withBlock(modelRef.current, name, emptyGraph())
-        const text = serializeDocument(modelRef.current)
-        lastSyncedText.current = text
-        setDoc(text)
-      }
+      if (!name) return // can't name a block after an unlabelled node
       navigateTo([...pathRef.current, name])
     },
     [navigateTo]
   )
+
+  const onNodeClick = useCallback<NodeMouseHandler<Node<ShapeNodeData>>>(
+    (e, node) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        drillInto(node)
+      }
+    },
+    [drillInto]
+  )
+
+  // Double-click starts an inline rename (connectors carry no label).
+  const onNodeDoubleClick = useCallback<NodeMouseHandler<Node<ShapeNodeData>>>((_e, node) => {
+    if (node.data.kind === 'connector') return
+    setEditingId(node.id)
+  }, [])
+
+  // Commit a rename: update the label (and re-fit the node to it). The canvas →
+  // text effect then re-serialises, so the change lands in the Markdown source.
+  const commitRename = useCallback(
+    (id: string, label: string) => {
+      setEditingId(null)
+      const trimmed = label.trim()
+      if (!trimmed) return // empty rename: keep the previous label
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id !== id) return n
+          const s = estimateNodeSize(n.data.kind, trimmed)
+          return { ...n, data: { ...n.data, label: trimmed, w: s.w, h: s.h } }
+        })
+      )
+    },
+    [setNodes]
+  )
+
+  const cancelRename = useCallback(() => setEditingId(null), [])
 
   // Text → canvas: parse + relayout the active block (debounced, non-destructive).
   const runParse = useCallback(
@@ -357,6 +410,18 @@ export default function App() {
     setTree(v.tree)
   }, [])
 
+  // Reflect the persisted MCP toggle on launch (desktop only).
+  useEffect(() => {
+    if (!settings) return
+    void settings.get().then((s) => setMcpEnabled(s.mcpEnabled))
+  }, [])
+
+  const toggleMcp = useCallback(async (enabled: boolean) => {
+    if (!settings) return
+    setMcpEnabled(enabled) // optimistic; main process persists + starts/stops
+    await settings.setMcpEnabled(enabled)
+  }, [])
+
   const doExport = useCallback(
     async (format: ImageFormat) => {
       const name = (currentFile?.name ?? 'diagram').replace(/\.md$/, '')
@@ -372,6 +437,29 @@ export default function App() {
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({ ...params, ...defaultEdgeProps() }, eds)),
     [setEdges]
+  )
+
+  const deleteEdge = useCallback(
+    (id: string) => setEdges((eds) => eds.filter((e) => e.id !== id)),
+    [setEdges]
+  )
+
+  // Drops a fresh shape on the canvas, centred on `center` (a flow-space point),
+  // selected and ready to drag. The canvas → text effect folds it into the source.
+  const addShape = useCallback(
+    (kind: ShapeKind, center: { x: number; y: number }) => {
+      const label = SHAPES[kind].label
+      const size = estimateNodeSize(kind, label)
+      const node: Node<ShapeNodeData> = {
+        id: crypto.randomUUID(),
+        type: 'shape',
+        position: { x: center.x - size.w / 2, y: center.y - size.h / 2 },
+        data: { kind, label, w: size.w, h: size.h },
+        selected: true
+      }
+      setNodes((nds) => [...nds.map((n) => ({ ...n, selected: false })), node])
+    },
+    [setNodes]
   )
 
   // --- Refactors -----------------------------------------------------------
@@ -509,6 +597,9 @@ export default function App() {
           vaultPath={vault.path}
           tree={tree}
           activePath={currentFile?.rel ?? null}
+          currentRel={currentFile?.rel ?? null}
+          canChooseVault={!!files}
+          onChooseVault={chooseVault}
           onOpenFile={openFromTree}
         />
         <EditorPane
@@ -527,10 +618,16 @@ export default function App() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onDeleteEdge={deleteEdge}
+          onNodeClick={onNodeClick}
           onNodeDoubleClick={onNodeDoubleClick}
           onNodeContextMenu={onNodeContextMenu}
           onSelectionContextMenu={onSelectionContextMenu}
           onPaneContextMenu={onPaneContextMenu}
+          onAddShape={addShape}
+          editingNodeId={editingId}
+          onRenameCommit={commitRename}
+          onRenameCancel={cancelRename}
           path={path}
           onNavigate={(i) => navigateTo(path.slice(0, i + 1))}
         />
@@ -562,6 +659,8 @@ export default function App() {
           vaultPath={vault.path}
           canChange={!!files}
           onChangeVault={chooseVault}
+          mcpEnabled={mcpEnabled}
+          onToggleMcp={toggleMcp}
           onClose={() => setSettingsOpen(false)}
         />
       )}

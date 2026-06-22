@@ -32,10 +32,15 @@ win:
 
 # Per-target names so the installer and the portable exe don't overwrite each
 # other (both default to the same filename otherwise).
+#
+# allowToChangeInstallationDirectory is off so every run installs to the same
+# fixed per-user location. Re-running the installer then upgrades the existing
+# installation in place (electron-builder detects it via the appId) instead of
+# leaving a second copy behind.
 nsis:
   oneClick: false
   perMachine: false
-  allowToChangeInstallationDirectory: true
+  allowToChangeInstallationDirectory: false
   artifactName: ${productName}-${version}-${arch}-setup.${ext}
 
 portable:

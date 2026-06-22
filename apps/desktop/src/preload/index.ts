@@ -33,6 +33,13 @@ const api = {
       suggestedName?: string
     }): Promise<{ path: string } | null> => ipcRenderer.invoke('export:image', args),
     writeClipboard: (text: string): Promise<void> => ipcRenderer.invoke('clipboard:write', text)
+  },
+  /** App settings: read all, toggle the bundled MCP server. */
+  settings: {
+    get: (): Promise<{ vaultPath: string; mcpEnabled: boolean }> =>
+      ipcRenderer.invoke('settings:get'),
+    setMcpEnabled: (enabled: boolean): Promise<boolean> =>
+      ipcRenderer.invoke('mcp:set-enabled', enabled)
   }
 }
 

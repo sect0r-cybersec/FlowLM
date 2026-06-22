@@ -155,8 +155,23 @@
   min-height: 0;
 }
 .vault-head {
+  display: block;
+  width: 100%;
+  text-align: left;
   padding: 13px 14px 11px;
+  border: none;
   border-bottom: 1px solid var(--border-soft);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.vault-head:hover:not(:disabled) {
+  background: var(--panel-2);
+}
+.vault-head:disabled {
+  cursor: default;
 }
 .vault-name {
   display: flex;
@@ -170,6 +185,16 @@
   width: 14px;
   height: 14px;
   color: var(--text-muted);
+}
+.vault-name .vault-switch {
+  width: 12px;
+  height: 12px;
+  margin-left: auto;
+  opacity: 0.5;
+  transform: rotate(90deg);
+}
+.vault-head:hover:not(:disabled) .vault-switch {
+  opacity: 0.9;
 }
 .vault-path {
   margin-top: 5px;
@@ -423,6 +448,60 @@
 .tbtn:disabled {
   opacity: 0.45;
 }
+.setting + .setting {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+.setting-toggle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+}
+.setting-toggle > div {
+  flex: 1;
+}
+.setting-toggle .setting-desc {
+  margin-bottom: 0;
+}
+.setting-toggle input[type='checkbox'] {
+  flex: none;
+  width: 38px;
+  height: 22px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  position: relative;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.setting-toggle input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+.setting-toggle input[type='checkbox']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.setting-toggle input[type='checkbox']:checked::after {
+  transform: translateX(16px);
+  background: #fff;
+}
+.setting-toggle input[type='checkbox']:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 
 /* Toast */
 .toast {
@@ -668,6 +747,129 @@
   place-items: center;
 }
 
+/* Shape outline: dimmed/translucent purple on hover, solid purple when selected.
+   Transparent base keeps the layout stable (no shift when the border appears). */
+.shape-node {
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  transition: outline-color 140ms ease;
+}
+.shape-node:hover {
+  outline-color: var(--accent-line);
+}
+.react-flow__node.selected .shape-node {
+  outline-color: var(--accent-strong);
+}
+
+/* Edge midpoint tools: the label, and a delete (✕) button shown on hover. */
+.edge-tools {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  /* Sit above nodes — a selected node is raised to z-index 1000 by React Flow,
+     which would otherwise paint over the delete button near a node's edge. */
+  z-index: 1001;
+}
+.edge-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cfc9d6;
+  background: var(--canvas);
+  padding: 0 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.edge-del {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  background: var(--canvas);
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 120ms ease, transform 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+.edge-del[data-show='true'] {
+  opacity: 1;
+  transform: scale(1);
+}
+.edge-del:hover {
+  background: #d24b6a;
+  border-color: #d24b6a;
+  color: #fff;
+}
+
+/* Connection ports: a small dot on each side, brighter on hover/selection. */
+.shape-node .node-port.react-flow__handle {
+  width: 18px;
+  height: 18px;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+/* The visible dot. The handle hit-box above stays centred on the shape edge so
+   arrows still attach to the shape; only this dot is pushed out onto the border. */
+.shape-node .node-port.react-flow__handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--canvas);
+  border: 1.5px solid var(--accent-line);
+  /* Hidden at rest; shown on hover/selection, mirroring the selection outline. */
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  transition: opacity 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+/* Offset each dot outward by the selection outline's gap (offset 3 + ~half width)
+   so it lands centred on the purple selection border. */
+.shape-node .node-port.react-flow__handle-top::after {
+  transform: translate(-50%, calc(-50% - 4px));
+}
+.shape-node .node-port.react-flow__handle-bottom::after {
+  transform: translate(-50%, calc(-50% + 4px));
+}
+.shape-node .node-port.react-flow__handle-left::after {
+  transform: translate(calc(-50% - 4px), -50%);
+}
+.shape-node .node-port.react-flow__handle-right::after {
+  transform: translate(calc(-50% + 4px), -50%);
+}
+/* Hover: filled, dimmed/translucent purple, like the selection outline on hover. */
+.react-flow__node:hover .node-port.react-flow__handle::after {
+  opacity: 1;
+  background: var(--accent-line);
+  border-color: var(--accent-line);
+}
+/* Selected: filled solid purple (after the hover rule so it wins when both apply). */
+.react-flow__node.selected .node-port.react-flow__handle::after {
+  opacity: 1;
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+/* Translucent ghost of the shape being dragged from the dock onto the canvas. */
+.shape-ghost {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 6;
+}
+
 /* Floating shape picker dock */
 .shapedock {
   position: absolute;
@@ -722,7 +924,7 @@
   border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
-  cursor: default;
+  cursor: pointer;
   color: var(--text-muted);
   font-family: inherit;
 }
