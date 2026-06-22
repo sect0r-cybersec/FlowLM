@@ -5,6 +5,9 @@ export type { FileNode }
 /** The Electron file API, or `undefined` when running in a plain browser. */
 export const files = typeof window !== 'undefined' ? window.flowlm?.files : undefined
 
+/** App settings + MCP toggle, or `undefined` in the plain-browser preview. */
+export const settings = typeof window !== 'undefined' ? window.flowlm?.settings : undefined
+
 export function baseName(p: string): string {
   return p.split(/[\\/]/).pop() ?? p
 }

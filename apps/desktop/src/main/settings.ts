@@ -4,12 +4,14 @@ import { existsSync, readFileSync, writeFileSync } from 'fs'
 
 export interface Settings {
   vaultPath: string
+  /** Whether the bundled FlowLM MCP server is run. Off by default. */
+  mcpEnabled: boolean
 }
 
 const settingsFile = (): string => join(app.getPath('userData'), 'flowlm-settings.json')
 
 function defaults(): Settings {
-  return { vaultPath: join(app.getPath('documents'), 'FlowLM') }
+  return { vaultPath: join(app.getPath('documents'), 'FlowLM'), mcpEnabled: false }
 }
 
 let cache: Settings | null = null

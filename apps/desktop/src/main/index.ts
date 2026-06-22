@@ -1,6 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, session, clipboard } from 'electron'
 import { join } from 'path'
 import { listVault, readFile, openDialog, saveFile, chooseVault, exportImage } from './files'
+import { getSettings, setSettings } from './settings'
+import { startMcp, stopMcp, restartMcpIfEnabled } from './mcp'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 
@@ -77,12 +79,27 @@ app.whenReady().then(() => {
   // Vault + file operations.
   const winOf = (e: Electron.IpcMainInvokeEvent) => BrowserWindow.fromWebContents(e.sender)
   ipcMain.handle('vault:list', () => listVault())
-  ipcMain.handle('vault:choose', (e) => chooseVault(winOf(e)))
+  ipcMain.handle('vault:choose', async (e) => {
+    const res = await chooseVault(winOf(e))
+    if (res) restartMcpIfEnabled() // re-point the server at the new vault
+    return res
+  })
+
+  // Settings + MCP server toggle.
+  ipcMain.handle('settings:get', () => getSettings())
+  ipcMain.handle('mcp:set-enabled', (_e, enabled: boolean) => {
+    setSettings({ mcpEnabled: enabled })
+    enabled ? startMcp() : stopMcp()
+    return enabled
+  })
   ipcMain.handle('file:read', (_e, absPath: string) => readFile(absPath))
   ipcMain.handle('file:open', (e) => openDialog(winOf(e)))
   ipcMain.handle('file:save', (e, args) => saveFile(winOf(e), args))
   ipcMain.handle('export:image', (e, args) => exportImage(winOf(e), args))
   ipcMain.handle('clipboard:write', (_e, text: string) => clipboard.writeText(text))
+
+  // Honour the persisted MCP toggle on launch (off by default).
+  if (getSettings().mcpEnabled) startMcp()
 
   createWindow()
 
@@ -90,6 +107,8 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+app.on('before-quit', () => stopMcp())
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
