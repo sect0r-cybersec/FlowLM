@@ -47,6 +47,10 @@ portable:
   artifactName: ${productName}-${version}-${arch}-portable.${ext}
 
 linux:
+  # electron-builder derives executableName from the package name by default.
+  # Ours is the scoped "@flowlm/desktop", which v26 rejects as an unsafe file
+  # path ("@flowlmdesktop"). Set an explicit, filesystem-safe name instead.
+  executableName: flowlm
   target:
     - AppImage
   category: Graphics
