@@ -13,6 +13,10 @@ fenced `mermaid` chart), so your diagrams live happily inside an Obsidian vault,
 repo, or any folder of `.md` files — and a bundled **MCP server** lets Claude Code /
 Claude Desktop read and edit that vault directly.
 
+<p align="center">
+  <img src="docs/preview.png" alt="FlowLM — visual-first flowchart editor with synced Mermaid source" width="800">
+</p>
+
 ---
 
 ## Table of Contents
